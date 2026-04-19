@@ -68,8 +68,14 @@
             handleFiles(e.target.files);
         });
 
+        let objectUrls = [];
+
         function handleFiles(files) {
             if (!files || files.length === 0) return;
+            
+            // Clean up old object URLs to prevent memory leaks
+            objectUrls.forEach(url => URL.revokeObjectURL(url));
+            objectUrls = [];
             
             previewGrid.innerHTML = '';
             const fileList = Array.from(files);
@@ -81,14 +87,30 @@
             }
 
             fileList.forEach(file => {
-                const reader = new FileReader();
-                reader.onload = e => {
+                try {
+                    const url = URL.createObjectURL(file);
+                    objectUrls.push(url);
+                    
                     const div = document.createElement('div');
                     div.className = 'preview-item';
-                    div.innerHTML = `<img src="${e.target.result}" alt="preview">`;
+                    
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.alt = 'preview';
+                    img.onload = () => {
+                        // Image loaded successfully
+                        console.log('Image loaded');
+                    };
+                    img.onerror = () => {
+                        console.error('Failed to load image preview');
+                        div.innerHTML = '<span style="color: #ef4444; font-size: 0.8rem;">Error loading image</span>';
+                    };
+                    
+                    div.appendChild(img);
                     previewGrid.appendChild(div);
-                };
-                reader.readAsDataURL(file);
+                } catch (err) {
+                    console.error('Error creating object URL:', err);
+                }
             });
         }
     </script>

@@ -1,16 +1,27 @@
 import os
+import io
+import sys
+import webbrowser
 from flask import Flask, render_template, request, send_file, url_for
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
-from PIL import Image
-import io
+from reportlab.lib.utils import ImageReader
+from PIL import Image, ImageOps 
+from threading import Timer
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # Increased to 50MB for mobile photos
+def get_resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(base_path, relative_path)
 
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
+app = Flask(__name__, 
+            template_folder=get_resource_path('templates'),
+            static_folder=get_resource_path('static'))
+
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB limit
 
 @app.route('/')
 def index():
@@ -50,12 +61,19 @@ def convert():
             c.showPage()
         
         try:
-            # Open image with PIL to handle rotation and conversion
+            # Open image with PIL
             img = Image.open(file)
             
-            # Save to temp bytes to use with reportlab
+            # Fix orientation based on EXIF (prevents sideways photos from phones)
+            img = ImageOps.exif_transpose(img)
+            
+            # Convert to RGB if necessary (e.g. for PNG or RGBA)
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            
+            # Save to temporary buffer for ReportLab
             img_temp = io.BytesIO()
-            img.save(img_temp, format='JPEG')
+            img.save(img_temp, format='JPEG', quality=85)
             img_temp.seek(0)
             
             # Place on canvas
@@ -68,11 +86,18 @@ def convert():
     c.save()
     
     buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name='result.pdf', mimetype='application/pdf')
-
-from reportlab.lib.utils import ImageReader
+    return send_file(buffer, as_attachment=True, download_name='Photo_to_PDF.pdf', mimetype='application/pdf')
 
 if __name__ == '__main__':
-    # Use PORT from environment for Render deployment, default to 5000 for local
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Local application settings
+    host = '127.0.0.1'
+    port = 5000
+    
+    # Auto-open browser
+    url = f"http://{host}:{port}"
+    Timer(1.5, lambda: webbrowser.open(url)).start()
+    
+    print(f"Aplikasi berjalan di {url}")
+    print("Silahkan tutup jendela hitam ini untuk mematikan aplikasi.")
+    
+    app.run(host=host, port=port, debug=False)

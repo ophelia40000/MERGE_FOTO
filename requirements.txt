@@ -1,4 +1,4 @@
 flask
 reportlab
 Pillow
-gunicorn
+pyinstaller
