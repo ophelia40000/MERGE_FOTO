@@ -50,9 +50,17 @@
         dropZone.addEventListener('dragover', () => dropZone.classList.add('active'));
         dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
         
+        dropZone.addEventListener('click', () => fileInput.click());
+
         dropZone.addEventListener('drop', e => {
             dropZone.classList.remove('active');
             const files = e.dataTransfer.files;
+            
+            // Sync dropped files to the hidden input
+            const dataTransfer = new DataTransfer();
+            Array.from(files).forEach(file => dataTransfer.items.add(file));
+            fileInput.files = dataTransfer.files;
+            
             handleFiles(files);
         });
 
@@ -61,6 +69,8 @@
         });
 
         function handleFiles(files) {
+            if (!files || files.length === 0) return;
+            
             previewGrid.innerHTML = '';
             const fileList = Array.from(files);
             
@@ -80,11 +90,6 @@
                 };
                 reader.readAsDataURL(file);
             });
-
-            // Update file input with dropped files
-            const dataTransfer = new DataTransfer();
-            fileList.forEach(file => dataTransfer.items.add(file));
-            fileInput.files = dataTransfer.files;
         }
     </script>
 </body>
